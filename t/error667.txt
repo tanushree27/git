@@ -1,0 +1,80 @@
+Initialized empty Git repository in /Users/tashu15/GITHUB/git/t/trash directory.t6030-bisect-porcelain/.git/
+expecting success: 
+     add_line_into_file "1: Hello World" hello &&
+     HASH1=$(git rev-parse --verify HEAD) &&
+     add_line_into_file "2: A new day for git" hello &&
+     HASH2=$(git rev-parse --verify HEAD) &&
+     add_line_into_file "3: Another new day for git" hello &&
+     HASH3=$(git rev-parse --verify HEAD) &&
+     add_line_into_file "4: Ciao for now" hello &&
+     HASH4=$(git rev-parse --verify HEAD)
+
+ok 1 - set up basic repo with 1 file (hello) and 4 commits
+
+expecting success: 
+	git bisect reset &&
+	git bisect start &&
+	git bisect bad $HASH4 &&
+	git bisect next
+
+We are not bisecting.
+Bisecting: 1 revision left to test after this (roughly 1 step)
+[7b7f204a749c3125d5224ed61ea2ae1187ad046f] Add <2: A new day for git> into <hello>.
+ok 2 - bisect starts with only one bad
+
+expecting success: 
+	git bisect reset &&
+	git bisect start &&
+	git bisect good $HASH1 &&
+	test_must_fail git bisect next
+
+ok 3 - bisect does not start with only one good
+
+expecting success: 
+	git bisect reset &&
+	git bisect start &&
+	git bisect good $HASH1 &&
+	git bisect bad $HASH4 &&
+	git bisect next
+
+Bisecting: 0 revisions left to test after this (roughly 1 step)
+[3de952f2416b6084f557ec417709eac740c6818c] Add <3: Another new day for git> into <hello>.
+Bisecting: 0 revisions left to test after this (roughly 1 step)
+[3de952f2416b6084f557ec417709eac740c6818c] Add <3: Another new day for git> into <hello>.
+ok 4 - bisect start with one bad and good
+
+expecting success: 
+	git bisect reset &&
+	test_must_fail git bisect start foo $HASH1 -- &&
+	test_must_fail git bisect start $HASH4 $HASH1 bar -- &&
+	test -z "$(git for-each-ref "refs/bisect/*")" &&
+	test -z "$(ls .git/BISECT_* 2>/dev/null)" &&
+	git bisect start &&
+	test_must_fail git bisect good foo $HASH1 &&
+	test_must_fail git bisect good $HASH1 bar &&
+	test_must_fail git bisect bad frotz &&
+	test_must_fail git bisect bad $HASH3 $HASH4 &&
+	test_must_fail git bisect skip bar $HASH3 &&
+	test_must_fail git bisect skip $HASH1 foo &&
+	test -z "$(git for-each-ref "refs/bisect/*")" &&
+	git bisect good $HASH1 &&
+	git bisect bad $HASH4
+
+not ok 5 - bisect fails if given any junk instead of revs
+#	
+#		git bisect reset &&
+#		test_must_fail git bisect start foo $HASH1 -- &&
+#		test_must_fail git bisect start $HASH4 $HASH1 bar -- &&
+#		test -z "$(git for-each-ref "refs/bisect/*")" &&
+#		test -z "$(ls .git/BISECT_* 2>/dev/null)" &&
+#		git bisect start &&
+#		test_must_fail git bisect good foo $HASH1 &&
+#		test_must_fail git bisect good $HASH1 bar &&
+#		test_must_fail git bisect bad frotz &&
+#		test_must_fail git bisect bad $HASH3 $HASH4 &&
+#		test_must_fail git bisect skip bar $HASH3 &&
+#		test_must_fail git bisect skip $HASH1 foo &&
+#		test -z "$(git for-each-ref "refs/bisect/*")" &&
+#		git bisect good $HASH1 &&
+#		git bisect bad $HASH4
+#	
