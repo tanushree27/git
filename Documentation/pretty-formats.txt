@@ -216,6 +216,8 @@ endif::git-rev-list[]
   ** 'key=<K>': only show trailers with specified key. Matching is
      done case-insensitively and trailing colon is optional. If option
      is given multiple times only last one is used.
+  ** 'valueonly': skip over the key part of the trailer and only show
+     the its value part.
   ** Examples: `%(trailers:only,unfold)` unfolds and shows all trailer
      lines, `%(trailers:key=Reviewed-by,unfold)` unfolds and shows
      trailer lines with key `Reviewed-by`.

@@ -1335,6 +1335,8 @@ static size_t format_commit_one(struct strbuf *sb, /* in UTF-8 */
 					opts.only_trailers = 1;
 				else if (match_placeholder_arg(arg, "unfold", &arg))
 					opts.unfold = 1;
+				else if (match_placeholder_arg(arg, "valueonly", &arg))
+					opts.value_only = 1;
 				else if (skip_prefix(arg, "key=", &arg)) {
 					const char *end = arg + strcspn(arg, ",)");
 
