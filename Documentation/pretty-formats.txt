@@ -218,9 +218,16 @@ endif::git-rev-list[]
      is given multiple times only last one is used.
   ** 'valueonly': skip over the key part of the trailer and only show
      the its value part.
-  ** Examples: `%(trailers:only,unfold)` unfolds and shows all trailer
-     lines, `%(trailers:key=Reviewed-by,unfold)` unfolds and shows
-     trailer lines with key `Reviewed-by`.
+  ** 'separator=<SEP>': specifying an alternative separator than the
+     default line feed character. SEP may can contain the literal
+     formatting codes %n and %xNN allowing it to contain characters
+     that are hard to type such as %x00, or comma and end-parenthesis
+     which would break parsing. If option is given multiple times only
+     the last one is used.
+  ** Examples: `%(trailers:only,unfold,separator=%x00)` unfolds and
+     shows all trailer lines separated by NUL character,
+     `%(trailers:key=Reviewed-by,unfold)` unfolds and shows trailer
+     lines with key `Reviewed-by`.
 
 NOTE: Some placeholders may depend on other options given to the
 revision traversal engine. For example, the `%g*` reflog options will
