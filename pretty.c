@@ -1074,6 +1074,17 @@ static int match_placeholder_arg(const char *to_parse, const char *candidate,
 	return 0;
 }
 
+struct format_trailer_match_data {
+	const char *trailer;
+	size_t trailer_len;
+};
+
+static int format_trailer_match_cb(const struct strbuf *sb, void *ud)
+{
+	struct format_trailer_match_data *data = ud;
+	return data->trailer_len == sb->len && !strncasecmp (data->trailer, sb->buf, sb->len);
+}
+
 static size_t format_commit_one(struct strbuf *sb, /* in UTF-8 */
 				const char *placeholder,
 				void *context)
@@ -1312,6 +1323,7 @@ static size_t format_commit_one(struct strbuf *sb, /* in UTF-8 */
 
 	if (skip_prefix(placeholder, "(trailers", &arg)) {
 		struct process_trailer_options opts = PROCESS_TRAILER_OPTIONS_INIT;
+		struct format_trailer_match_data filter_data;
 		size_t ret = 0;
 
 		opts.no_divider = 1;
@@ -1323,7 +1335,24 @@ static size_t format_commit_one(struct strbuf *sb, /* in UTF-8 */
 					opts.only_trailers = 1;
 				else if (match_placeholder_arg(arg, "unfold", &arg))
 					opts.unfold = 1;
-				else
+				else if (skip_prefix(arg, "key=", &arg)) {
+					const char *end = arg + strcspn(arg, ",)");
+
+					filter_data.trailer = arg;
+					filter_data.trailer_len = end - arg;
+
+					if (filter_data.trailer_len &&
+					    filter_data.trailer[filter_data.trailer_len - 1] == ':')
+						filter_data.trailer_len--;
+
+					opts.filter = format_trailer_match_cb;
+					opts.filter_data = &filter_data;
+					opts.only_trailers = 1;
+
+					arg = end;
+					if (*arg == ',')
+						arg++;
+				} else
 					break;
 			}
 		}

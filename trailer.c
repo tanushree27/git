@@ -1147,10 +1147,12 @@ static void format_trailer_info(struct strbuf *out,
 			struct strbuf val = STRBUF_INIT;
 
 			parse_trailer(&tok, &val, NULL, trailer, separator_pos);
-			if (opts->unfold)
-				unfold_value(&val);
+			if (!opts->filter || opts->filter(&tok, opts->filter_data)) {
+				if (opts->unfold)
+					unfold_value(&val);
 
-			strbuf_addf(out, "%s: %s\n", tok.buf, val.buf);
+				strbuf_addf(out, "%s: %s\n", tok.buf, val.buf);
+			}
 			strbuf_release(&tok);
 			strbuf_release(&val);
 
