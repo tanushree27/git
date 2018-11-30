@@ -547,7 +547,7 @@ static int bisect_start(struct bisect_terms *terms, int no_checkout,
 		if (!get_oid(head, &head_oid) &&
 		    !starts_with(head, "refs/heads/")) {
 			strbuf_reset(&start_head);
-			strbuf_addstr(&start_head, sha1_to_hex(head_oid.hash));
+			strbuf_addstr(&start_head, oid_to_hex(&head_oid));
 		} else if (!get_oid(head, &head_oid) &&
 			   skip_prefix(head, "refs/heads/", &head)) {
 			/*
