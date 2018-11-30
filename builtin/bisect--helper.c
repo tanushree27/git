@@ -418,7 +418,7 @@ static int bisect_append_log_quoted(const char **argv)
 	if (fprintf(fp, "git bisect start") < 1)
 		goto fail;
 
-	sq_quote_argv(&orig_args, argv, 0);
+	sq_quote_argv(&orig_args, argv);
 	if (fprintf(fp, "%s\n", orig_args.buf) < 1)
 		goto fail;
 
@@ -589,7 +589,7 @@ static int bisect_start(struct bisect_terms *terms, int no_checkout,
 	}
 
 	if (pathspec_pos < argc - 1)
-		sq_quote_argv(&bisect_names, argv + pathspec_pos, 0);
+		sq_quote_argv(&bisect_names, argv + pathspec_pos);
 	write_file(git_path_bisect_names(), "%s\n", bisect_names.buf);
 
 	for (i = 0; i < states.nr; i++)
