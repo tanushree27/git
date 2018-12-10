@@ -153,8 +153,10 @@ static int bisect_reset(const char *commit)
 	struct strbuf branch = STRBUF_INIT;
 
 	if (!commit) {
-		if (strbuf_read_file(&branch, git_path_bisect_start(), 0) < 1)
-			return !printf(_("We are not bisecting.\n"));
+		if (strbuf_read_file(&branch, git_path_bisect_start(), 0) < 1) {
+			printf(_("We are not bisecting.\n"));
+       		return 0;
+		}
 		strbuf_rtrim(&branch);
 	} else {
 		struct object_id oid;
@@ -173,7 +175,7 @@ static int bisect_reset(const char *commit)
 				"'git bisect reset <commit>'."), branch.buf);
 			strbuf_release(&branch);
 			argv_array_clear(&argv);
-			return -1;
+			return 1;
 		}
 		argv_array_clear(&argv);
 	}
