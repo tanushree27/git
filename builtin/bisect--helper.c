@@ -33,16 +33,14 @@ static const char * const git_bisect_helper_usage[] = {
 };
 
 struct bisect_terms {
-	const char *term_good;
-	const char *term_bad;
+	 char *term_good;
+	 char *term_bad;
 };
 
 static void free_terms(struct bisect_terms *terms)
 {
-	if (!terms->term_good)
-		free((void *) terms->term_good);
-	if (!terms->term_bad)
-		free((void *) terms->term_bad);
+	FREE_AND_NULL(terms->term_good);
+	FREE_AND_NULL(terms->term_bad);
 }
 
 static void set_terms(struct bisect_terms *terms, const char *bad,
@@ -646,7 +644,7 @@ int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
 		OPT_CMDMODE(0, "bisect-reset", &cmdmode,
 			 N_("reset the bisection state"), BISECT_RESET),
 		OPT_CMDMODE(0, "bisect-write", &cmdmode,
-			 N_("update the refs according to the bisection state and may write it to BISECT_LOG"), BISECT_WRITE),
+			 N_("write out the bisection state in BISECT_LOG"), BISECT_WRITE),
 		OPT_CMDMODE(0, "check-and-set-terms", &cmdmode,
 			 N_("check and set terms in a bisection state"), CHECK_AND_SET_TERMS),
 		OPT_CMDMODE(0, "bisect-next-check", &cmdmode,
@@ -659,7 +657,7 @@ int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
 			 N_("update BISECT_HEAD instead of checking out the current commit")),
 		OPT_END()
 	};
-	struct bisect_terms terms;
+	struct bisect_terms terms ={ .term_good = NULL, .term_bad = NULL };
 
 	argc = parse_options(argc, argv, prefix, options,
 			     git_bisect_helper_usage,
@@ -719,5 +717,5 @@ int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
 		return error("BUG: unknown subcommand '%d'", cmdmode);
 	}
 	free_terms(&terms);
-	return res;
+	return !!res;
 }
