@@ -597,14 +597,24 @@ static int bisect_start(struct bisect_terms *terms, int no_checkout,
 	 * Check for one bad and then some good revisions
 	 */
 	for (i = 0; i < argc; i++) {
-		if (!strcmp(argv[i], "--")) {
+		const char *arg;
+		if (starts_with(argv[i], "'"))
+			arg = sq_dequote(xstrdup(argv[i]));
+		else
+			arg = xstrdup(argv[i]);
+		if (!strcmp(arg, "--")) {
 			has_double_dash = 1;
 			break;
 		}
+		free((void *) arg);
 	}
 
 	for (i = 0; i < argc; i++) {
-		const char *arg = argv[i];
+		const char *arg;
+		if (starts_with(argv[i], "'"))
+			arg = sq_dequote(xstrdup(argv[i]));
+		else
+			arg = argv[i];
 		if (!strcmp(argv[i], "--")) {
 			break;
 		} else if (!strcmp(arg, "--no-checkout")) {
@@ -613,7 +623,10 @@ static int bisect_start(struct bisect_terms *terms, int no_checkout,
 			 !strcmp(arg, "--term-old")) {
 			must_write_terms = 1;
 			free((void *) terms->term_good);
-			terms->term_good = xstrdup(argv[++i]);
+			if (starts_with(argv[++i], "'"))
+				terms->term_good = sq_dequote(xstrdup(argv[i]));
+			else
+				terms->term_good = xstrdup(argv[i]);
 		} else if (skip_prefix(arg, "--term-good=", &arg) ||
 			   skip_prefix(arg, "--term-old=", &arg)) {
 			must_write_terms = 1;
@@ -623,7 +636,10 @@ static int bisect_start(struct bisect_terms *terms, int no_checkout,
 			 !strcmp(arg, "--term-new")) {
 			must_write_terms = 1;
 			free((void *) terms->term_bad);
-			terms->term_bad = xstrdup(argv[++i]);
+			if (starts_with(argv[++i], "'"))
+				terms->term_bad = sq_dequote(xstrdup(argv[i]));
+			else
+				terms->term_bad = xstrdup(argv[i]);
 		} else if (skip_prefix(arg, "--term-bad=", &arg) ||
 			   skip_prefix(arg, "--term-new=", &arg)) {
 			must_write_terms = 1;
@@ -759,7 +775,7 @@ finish:
 	string_list_clear(&states, 0);
 	strbuf_release(&start_head);
 	strbuf_release(&bisect_names);
-	return retval;
+	return retval || bisect_auto_next(terms, NULL);
 }
 
 int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
