@@ -461,19 +461,21 @@ static int bisect_successful(struct bisect_terms *terms)
 	printf(_("%s\n"), bad_ref);
 	commit = lookup_commit_reference(the_repository, &oid);
 	format_commit_message(commit, "%s", &commit_name, &pp);
+	
 	fp = fopen(git_path_bisect_log(), "a");
-	if (!fp) {
-		retval = -1;
-		goto finish_10;
-	}
+	if (!fp)
+		goto fail;
 	if (fprintf(fp, "# first %s commit: [%s] %s\n",
 		    terms->term_bad, oid_to_hex(&oid),
-		    commit_name.buf) < 1){
-		retval = -1;
-		goto finish_10;
-	}
-	goto finish_10;
-finish_10:
+		    commit_name.buf) < 1)
+		goto fail;
+
+	goto finish;
+
+fail:
+	retval = -1;
+
+finish:
 	if (fp)
 		fclose(fp);
 	strbuf_release(&commit_name);
@@ -493,14 +495,11 @@ static int bisect_skipped_commits(struct bisect_terms *terms)
 	int i, retval = 0;
 
 	fp = fopen(git_path_bisect_log(), "a");
-	if (!fp) {
-		retval = -1;
-		goto finish_2;
-	}
-	if (fprintf(fp, "# only skipped commits left to test\n") < 1) {
-		retval = -1;
-		goto finish_2;
-	}
+	if (!fp)
+		goto fail;
+	if (fprintf(fp, "# only skipped commits left to test\n") < 1)
+		goto fail;
+
 	for_each_glob_ref_in(register_good_ref, term_good,
 			     "refs/bisect/", (void *) &good_revs);
 
@@ -530,8 +529,12 @@ static int bisect_skipped_commits(struct bisect_terms *terms)
 			    commit_name.buf);
 		strbuf_release(&commit_name);
 	}
-	goto finish_2;
-finish_2:
+	goto finish;
+
+fail:
+	retval = -1;
+
+finish:
 	if (fp)
 		fclose(fp);
 	string_list_clear(&good_revs, 0);
@@ -549,19 +552,13 @@ static int bisect_next(struct bisect_terms *terms, const char *prefix)
 	int res, no_checkout;
 
 	bisect_autostart(terms);
-	/*
-	 * In case of mistaken revs or checkout error, or signals received,
-	 * "bisect_auto_next" below may exit or misbehave.
-	 * We have to trap this to be able to clean up using
-	 * "bisect_clean_state".
-	 */
 	if (bisect_next_check(terms, terms->term_good))
 		return -1;
 
 	no_checkout = !is_empty_or_missing_file(git_path_bisect_head());
 
 	/* Perform all bisection computation, display and checkout */
-	res = bisect_next_all(prefix , no_checkout);
+	res = bisect_next_all(prefix, no_checkout);
 
 	if (res == 10) {
 		return bisect_successful(terms);
