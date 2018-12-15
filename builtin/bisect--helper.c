@@ -50,8 +50,8 @@ static void set_terms(struct bisect_terms *terms, const char *bad,
 	terms->term_bad = xstrdup(bad);
 }
 
-	static const char *vocab_bad = "bad|new";
-	static const char *vocab_good = "good|old";
+static const char *vocab_bad = "bad|new";
+static const char *vocab_good = "good|old";
 
 /*
  * Check whether the string `term` belongs to the set of strings
@@ -306,18 +306,17 @@ static int bisect_next_check(const struct bisect_terms *terms,
 	    !strcmp(current_term, terms->term_good)) {
 		char *yesno;
 		/*
-		 * have bad (or new) but not good (or old). We could bisect
-		 * although this is less optimum.
-		 */
-		warning(_("bisecting only with a %s commit\n"),
-      	terms->term_bad);
+		* have bad (or new) but not good (or old). We could bisect
+		* although this is less optimum.
+		*/
+		warning(_("bisecting only with a %s commit\n"), terms->term_bad);
 		if (!isatty(0))
 			goto finish;
 		/*
-		 * TRANSLATORS: Make sure to include [Y] and [n] in your
-		 * translation. The program will only accept English input
-		 * at this point.
-		 */
+		* TRANSLATORS: Make sure to include [Y] and [n] in your
+		* translation. The program will only accept English input
+		* at this point.
+		*/
 		yesno = git_prompt(_("Are you sure [Y/n]? "), PROMPT_ECHO);
 		if (starts_with(yesno, "N") || starts_with(yesno, "n"))
 			goto fail;
@@ -326,13 +325,13 @@ static int bisect_next_check(const struct bisect_terms *terms,
 	}
 	if (!is_empty_or_missing_file(git_path_bisect_start())) {
 		error(_("You need to give me at least one %s and %s revision.\n"
-		 "You can use \"git bisect %s\" and \"git bisect %s\" for that."),
+		"You can use \"git bisect %s\" and \"git bisect %s\" for that."),
 		vocab_bad, vocab_good, vocab_bad, vocab_good);
 		goto fail;
 	} else {
 		error(_("You need to start by \"git bisect start\".\n"
-    	"You then need to give me at least one %s and %s revision.\n"
-    	"You can use \"git bisect %s\" and \"git bisect %s\" for that."),
+		"You then need to give me at least one %s and %s revision.\n"
+		"You can use \"git bisect %s\" and \"git bisect %s\" for that."),
 		vocab_good, vocab_bad, vocab_good, vocab_bad);
 		goto fail;
 	}
@@ -383,20 +382,23 @@ static int bisect_terms(struct bisect_terms *terms, const char **argv, int argc)
 		return error(_("--bisect-term requires exactly one argument"));
 
 	if (argc == 0)
-		return !printf(_("Your current terms are %s for the old state\n"
-				 "and %s for the new state.\n"),
-				 terms->term_good, terms->term_bad);
+	{
+		printf(_("Your current terms are %s for the old state\n"
+		"and %s for the new state.\n"), 
+		terms->term_good, terms->term_bad);
+		return 0;
+	}
 
 	for (i = 0; i < argc; i++) {
-		if (!strcmp(argv[i], "--term-good"))
-			printf(_("%s\n"), terms->term_good);
-		else if (!strcmp(argv[i], "--term-bad"))
-			printf(_("%s\n"), terms->term_bad);
+		if (one_of(argv[i], "--term-good", "--term-old", NULL))
+			printf("%s\n", terms->term_good);
+		else if (one_of(argv[i], "--term-bad", "--term-new", NULL))
+			printf("%s\n", terms->term_bad);
 		else
-			error(_("BUG: invalid argument %s for 'git bisect terms'.\n"
-				  "Supported options are: "
-				  "--term-good|--term-old and "
-				  "--term-bad|--term-new."), argv[i]);
+			BUG(_("invalid argument %s for 'git bisect terms'.\n"
+				"Supported options are: "
+				"--term-good|--term-old and "
+				"--term-bad|--term-new."), argv[i]);
 	}
 
 	return 0;
@@ -653,7 +655,7 @@ int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
 			 N_("update BISECT_HEAD instead of checking out the current commit")),
 		OPT_END()
 	};
-	struct bisect_terms terms ={ .term_good = NULL, .term_bad = NULL };
+	struct bisect_terms terms = { .term_good = NULL, .term_bad = NULL };
 
 	argc = parse_options(argc, argv, prefix, options,
 			     git_bisect_helper_usage,
