@@ -267,7 +267,7 @@ static int check_and_set_terms(struct bisect_terms *terms, const char *cmd)
 			set_terms(terms, "bad", "good");
 			return write_terms(terms->term_bad, terms->term_good);
 		}
-		else if (one_of(cmd, "new", "old", NULL)) {
+		if (one_of(cmd, "new", "old", NULL)) {
 			free_terms(terms);
 			set_terms(terms, "new", "old");
 			return write_terms(terms->term_bad, terms->term_good);
