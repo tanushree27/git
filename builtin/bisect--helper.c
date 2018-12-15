@@ -25,7 +25,7 @@ static const char * const git_bisect_helper_usage[] = {
 	N_("git bisect--helper --bisect-reset [<commit>]"),
 	N_("git bisect--helper --bisect-write <state> <revision> <good_term> <bad_term> [<nolog>]"),
 	N_("git bisect--helper --bisect-check-and-set-terms <command> <good_term> <bad_term>"),
-	N_("git bisect--helper --bisect-next-check [<term>] <good_term> <bad_term>"),
+	N_("git bisect--helper --bisect-next-check <good_term> <bad_term> [<term>]"),
 	N_("git bisect--helper --bisect-terms [--term-good | --term-old | --term-bad | --term-new]"),
 	N_("git bisect--helper --bisect-start [--term-{old,good}=<term> --term-{new,bad}=<term>]"
 					      "[--no-checkout] [<bad> [<good>...]] [--] [<paths>...]"),
@@ -50,10 +50,8 @@ static void set_terms(struct bisect_terms *terms, const char *bad,
 	terms->term_bad = xstrdup(bad);
 }
 
-static const char *voc[] = {
-	"bad|new",
-	"good|old"
-};
+	static const char *vocab_bad = "bad|new";
+	static const char *vocab_good = "good|old";
 
 /*
  * Check whether the string `term` belongs to the set of strings
@@ -304,15 +302,15 @@ static int bisect_next_check(const struct bisect_terms *terms,
 	if (!current_term)
 		goto fail;
 
-	if (missing_good && !missing_bad && current_term &&
+	if (missing_good && !missing_bad &&
 	    !strcmp(current_term, terms->term_good)) {
 		char *yesno;
 		/*
 		 * have bad (or new) but not good (or old). We could bisect
 		 * although this is less optimum.
 		 */
-		fprintf(stderr, _("Warning: bisecting only with a %s commit\n"),
-			terms->term_bad);
+		warning(_("bisecting only with a %s commit\n"),
+      	terms->term_bad);
 		if (!isatty(0))
 			goto finish;
 		/*
@@ -327,17 +325,15 @@ static int bisect_next_check(const struct bisect_terms *terms,
 		goto finish;
 	}
 	if (!is_empty_or_missing_file(git_path_bisect_start())) {
-		error(_("You need to give me at least one %s and "
-			"%s revision. You can use \"git bisect %s\" "
-			"and \"git bisect %s\" for that.\n"),
-			voc[0], voc[1], voc[0], voc[1]);
+		error(_("You need to give me at least one %s and %s revision.\n"
+		 "You can use \"git bisect %s\" and \"git bisect %s\" for that."),
+		vocab_bad, vocab_good, vocab_bad, vocab_good);
 		goto fail;
 	} else {
-		error(_("You need to start by \"git bisect start\". You "
-			"then need to give me at least one %s and %s "
-			"revision. You can use \"git bisect %s\" and "
-			"\"git bisect %s\" for that.\n"),
-			voc[1], voc[0], voc[1], voc[0]);
+		error(_("You need to start by \"git bisect start\".\n"
+    	"You then need to give me at least one %s and %s revision.\n"
+    	"You can use \"git bisect %s\" and \"git bisect %s\" for that."),
+		vocab_good, vocab_bad, vocab_good, vocab_bad);
 		goto fail;
 	}
 	goto finish;
