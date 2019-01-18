@@ -633,6 +633,12 @@ static void bisect_rev_setup(struct rev_info *revs, const char *prefix,
 	struct argv_array rev_argv = ARGV_ARRAY_INIT;
 	int i;
 
+	/*
+         * Since the code is slowly being converted to C, there might be
+         * instances where the revisions were initialized before. Thus
+         * we first need to reset it.
+         */
+
 	reset_revision_walk();
 	repo_init_revisions(the_repository, revs, prefix);
 	revs->abbrev = 0;
@@ -654,18 +660,13 @@ static void bisect_rev_setup(struct rev_info *revs, const char *prefix,
 
 static void bisect_common(struct rev_info *revs)
 {
-	/*
-	 * We don't want to clean the bisection state
-	 * as we need to get back to where we started
-	 * by using `git bisect reset`.
-	 */
 	if (prepare_revision_walk(revs))
 		die("revision walk setup failed");
 	if (revs->tree_objects)
 		mark_edges_uninteresting(revs, NULL);
 }
 
-static int exit_if_skipped_commits(struct commit_list *tried,
+static int error_if_skipped_commits(struct commit_list *tried,
 				    const struct object_id *bad)
 {
 	if (!tried)
@@ -686,7 +687,7 @@ static int exit_if_skipped_commits(struct commit_list *tried,
 	 * as we need to get back to where we started
 	 * by using `git bisect reset`.
 	 */
-	return 2;
+	return -2;
 }
 
 static int is_expected_rev(const struct object_id *oid)
@@ -728,7 +729,7 @@ static int bisect_checkout(const struct object_id *bisect_rev, int no_checkout)
 		int res;
 		res = run_command_v_opt(argv_checkout, RUN_GIT_CMD);
 		if (res)
-			return res;
+			return -res;
 	}
 
 	argv_show_branch[1] = bisect_rev_hex;
@@ -783,7 +784,7 @@ static int handle_bad_merge_base(void)
 		 * as we need to get back to where we started
 		 * by using `git bisect reset`.
 		 */
-		return 3;
+		return -3;
 	}
 
 	fprintf(stderr, _("Some %s revs are not ancestors of the %s rev.\n"
@@ -791,10 +792,10 @@ static int handle_bad_merge_base(void)
 		"Maybe you mistook %s and %s revs?\n"),
 		term_good, term_bad, term_good, term_bad);
 	bisect_clean_state();
-	return 1;
+	return -1;
 }
 
-static int handle_skipped_merge_base(const struct object_id *mb)
+static void handle_skipped_merge_base(const struct object_id *mb)
 {
 	char *mb_hex = oid_to_hex(mb);
 	char *bad_hex = oid_to_hex(current_bad_oid);
@@ -807,7 +808,6 @@ static int handle_skipped_merge_base(const struct object_id *mb)
 		"We continue anyway."),
 		bad_hex, good_hex, term_bad, mb_hex, bad_hex);
 	free(good_hex);
-	return 0;
 }
 
 /*
@@ -834,7 +834,7 @@ static int check_merge_bases(int rev_nr, struct commit **rev, int no_checkout)
 		} else if (0 <= oid_array_lookup(&good_revs, mb)) {
 			continue;
 		} else if (0 <= oid_array_lookup(&skipped_revs, mb)) {
-			res = handle_skipped_merge_base(mb);
+			handle_skipped_merge_base(mb);
 			break;
 		} else {
 			printf(_("Bisecting: a merge base must be tested\n"));
@@ -845,7 +845,7 @@ static int check_merge_bases(int rev_nr, struct commit **rev, int no_checkout)
 			 * by using `git bisect reset`.
 			 */
 			if (!res)
-				exit(0);
+				return 0;
 			break;
 		}
 	}
@@ -980,8 +980,8 @@ void read_bisect_terms(const char **read_bad, const char **read_good)
 /*
  * We use the convention to return with an return code 10 means that
  * the bisection process finished successfully.
- * In this case the calling shell script should exit 0.
- *
+ * In this case  the calling function or command should not turn a 10 
+ * return code into an error or a non zero exit code.
  * If no_checkout is non-zero, the bisection process does not
  * checkout the trial commit but instead simply updates BISECT_HEAD.
  */
@@ -999,7 +999,7 @@ int bisect_next_all(const char *prefix, int no_checkout)
 
 	res = check_good_are_ancestors_of_bad(prefix, no_checkout);
 	if (res)
-		return res;
+		return res == 10 ? 0 : res;
 
 	bisect_rev_setup(&revs, prefix, "%s", "^%s", 1);
 	revs.limited = 1;
@@ -1015,7 +1015,7 @@ int bisect_next_all(const char *prefix, int no_checkout)
 		 * We should return error here only if the "bad"
 		 * commit is also a "skip" commit.
 		 */
-		res = exit_if_skipped_commits(tried, NULL);
+		res = error_if_skipped_commits(tried, NULL);
 		if (res)
 			return res;
 
@@ -1029,7 +1029,7 @@ int bisect_next_all(const char *prefix, int no_checkout)
 		 * as we need to get back to where we started
 		 * by using `git bisect reset`.
 		 */
-		return 1;
+		return -1;
 	}
 
 	if (!all) {
@@ -1041,13 +1041,13 @@ int bisect_next_all(const char *prefix, int no_checkout)
 		 * as we need to get back to where we started
 		 * by using `git bisect reset`.
 		 */
-		return 4;
+		return -4;
 	}
 
 	bisect_rev = &revs.commits->item->object.oid;
 
 	if (oideq(bisect_rev, current_bad_oid)) {
-		res = exit_if_skipped_commits(tried, current_bad_oid);
+		res = error_if_skipped_commits(tried, current_bad_oid);
 		if (res)
 			return res;
 		printf("%s is the first %s commit\n", oid_to_hex(bisect_rev),

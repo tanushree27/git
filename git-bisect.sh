@@ -90,7 +90,8 @@ bisect_state() {
 	state=$1
 	get_terms
 	git bisect--helper --check-and-set-terms $state $TERM_GOOD $TERM_BAD || exit
-	get_terms
+	#need to re-read terms
+	get_terms 
 	case "$#,$state" in
 	0,*)
 		die "Please call 'bisect_state' with at least one argument." ;;
