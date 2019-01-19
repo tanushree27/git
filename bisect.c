@@ -801,13 +801,16 @@ static void handle_skipped_merge_base(const struct object_id *mb)
  * "check_merge_bases" checks that merge bases are not "bad" (or "new").
  *
  * - If one is "bad" (or "new"), it means the user assumed something wrong
- * and we must exit with a non 0 error code.
+ * and we must return error with a non 0 error code.
  * - If one is "good" (or "old"), that's good, we have nothing to do.
  * - If one is "skipped", we can't know but we should warn.
  * - If we don't know, we should check it out and ask the user to test.
+ * - If a merge base must be tested, on success return -11 a special condition
+ * for early success, this will be converted back to 0 in cmd_bisect__helper.
  */
-static void check_merge_bases(int rev_nr, struct commit **rev, int no_checkout)
+static int check_merge_bases(int rev_nr, struct commit **rev, int no_checkout)
 {
+	int res = 0;
 	struct commit_list *result;
 
 	result = get_merge_bases_many(rev[0], rev_nr - 1, rev + 1);
@@ -822,11 +825,15 @@ static void check_merge_bases(int rev_nr, struct commit **rev, int no_checkout)
 			handle_skipped_merge_base(mb);
 		} else {
 			printf(_("Bisecting: a merge base must be tested\n"));
-			exit(-bisect_checkout(mb, no_checkout));
+			res = bisect_checkout(mb, no_checkout);
+			/* early success */
+			res = res ? res : -11;
+			break;
 		}
 	}
 
 	free_commit_list(result);
+	return res;
 }
 
 static int check_ancestors(int rev_nr, struct commit **rev, const char *prefix)
@@ -851,17 +858,22 @@ static int check_ancestors(int rev_nr, struct commit **rev, const char *prefix)
  *
  * If that's not the case, we need to check the merge bases.
  * If a merge base must be tested by the user, its source code will be
- * checked out to be tested by the user and we will exit.
+ * checked out to be tested by the user and we will return.
  */
-static void check_good_are_ancestors_of_bad(const char *prefix, int no_checkout)
+static int check_good_are_ancestors_of_bad(const char *prefix, int no_checkout)
 {
 	char *filename = git_pathdup("BISECT_ANCESTORS_OK");
 	struct stat st;
-	int fd, rev_nr;
+	int fd, rev_nr, res = 0;
 	struct commit **rev;
 
+	/*
+	 * We don't want to clean the bisection state
+	 * as we need to get back to where we started
+	 * by using `git bisect reset`.
+	 */
 	if (!current_bad_oid)
-		die(_("a %s revision is needed"), term_bad);
+		return error(_("a %s revision is needed"), term_bad);
 
 	/* Check if file BISECT_ANCESTORS_OK exists. */
 	if (!stat(filename, &st) && S_ISREG(st.st_mode))
@@ -874,8 +886,10 @@ static void check_good_are_ancestors_of_bad(const char *prefix, int no_checkout)
 	/* Check if all good revs are ancestor of the bad rev. */
 	rev = get_bad_and_good_commits(&rev_nr);
 	if (check_ancestors(rev_nr, rev, prefix))
-		check_merge_bases(rev_nr, rev, no_checkout);
+		res = check_merge_bases(rev_nr, rev, no_checkout);
 	free(rev);
+	if (res)
+		goto done;
 
 	/* Create file BISECT_ANCESTORS_OK. */
 	fd = open(filename, O_CREAT | O_TRUNC | O_WRONLY, 0600);
@@ -886,6 +900,7 @@ static void check_good_are_ancestors_of_bad(const char *prefix, int no_checkout)
 		close(fd);
  done:
 	free(filename);
+	return res;
 }
 
 /*
@@ -963,7 +978,9 @@ int bisect_next_all(const char *prefix, int no_checkout)
 	if (read_bisect_refs())
 		die(_("reading bisect refs failed"));
 
-	check_good_are_ancestors_of_bad(prefix, no_checkout);
+	res = check_good_are_ancestors_of_bad(prefix, no_checkout);
+	if (res)
+		return res;
 
 	bisect_rev_setup(&revs, prefix, "%s", "^%s", 1);
 	revs.limited = 1;
