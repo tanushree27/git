@@ -722,11 +722,11 @@ static int bisect_checkout(const struct object_id *bisect_rev, int no_checkout)
 		int res;
 		res = run_command_v_opt(argv_checkout, RUN_GIT_CMD);
 		if (res)
-			exit(res);
+			return -res;
 	}
 
 	argv_show_branch[1] = bisect_rev_hex;
-	return run_command_v_opt(argv_show_branch, RUN_GIT_CMD);
+	return -run_command_v_opt(argv_show_branch, RUN_GIT_CMD);
 }
 
 static struct commit *get_commit_reference(const struct object_id *oid)
@@ -822,7 +822,7 @@ static void check_merge_bases(int rev_nr, struct commit **rev, int no_checkout)
 			handle_skipped_merge_base(mb);
 		} else {
 			printf(_("Bisecting: a merge base must be tested\n"));
-			exit(bisect_checkout(mb, no_checkout));
+			exit(-bisect_checkout(mb, no_checkout));
 		}
 	}
 
@@ -1021,7 +1021,11 @@ int bisect_next_all(const char *prefix, int no_checkout)
 		  nr), nr, steps_msg);
 	free(steps_msg);
 
-	return bisect_checkout(bisect_rev, no_checkout);
+	res = bisect_checkout(bisect_rev, no_checkout);
+	if (res)
+		bisect_clean_state();
+
+	return res;
 }
 
 static inline int log2i(int n)
