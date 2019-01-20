@@ -29,7 +29,7 @@ static const char * const git_bisect_helper_usage[] = {
 	N_("git bisect--helper --bisect-next-check <good_term> <bad_term> [<term>]"),
 	N_("git bisect--helper --bisect-terms [--term-good | --term-old | --term-bad | --term-new]"),
 	N_("git bisect--helper --bisect-start [--term-{old,good}=<term> --term-{new,bad}=<term>]"
-					     "[--no-checkout] [<bad> [<good>...]] [--] [<paths>...]"),
+					    "[--no-checkout] [<bad> [<good>...]] [--] [<paths>...]"),
 	N_("git bisect--helper --bisect-next"),
 	N_("git bisect--helper --bisect-auto-next"),
 	NULL
@@ -572,14 +572,20 @@ static int bisect_start(struct bisect_terms *terms, int no_checkout,
 	 * Check for one bad and then some good revisions
 	 */
 	for (i = 0; i < argc; i++) {
-		if (!strcmp(argv[i], "--")) {
+		char *dequoted = argv[i][0] != '\'' ? NULL : sq_dequote(xstrdup(argv[i]));
+		const char *arg = dequoted ? dequoted : argv[i];
+
+		if (!strcmp(arg, "--")) {
 			has_double_dash = 1;
 			break;
 		}
+		free(dequoted);
 	}
 
 	for (i = 0; i < argc; i++) {
-		const char *arg = argv[i];
+		char *dequoted = argv[i][0] != '\'' ? NULL : sq_dequote(xstrdup(argv[i]));
+		const char *arg = dequoted ? dequoted : argv[i];
+
 		if (!strcmp(argv[i], "--")) {
 			break;
 		} else if (!strcmp(arg, "--no-checkout")) {
@@ -589,6 +595,8 @@ static int bisect_start(struct bisect_terms *terms, int no_checkout,
 			must_write_terms = 1;
 			free((void *) terms->term_good);
 			terms->term_good = xstrdup(argv[++i]);
+			if (terms->term_good[0] == '\'')
+				sq_dequote(terms->term_good);
 		} else if (skip_prefix(arg, "--term-good=", &arg) ||
 			   skip_prefix(arg, "--term-old=", &arg)) {
 			must_write_terms = 1;
@@ -599,6 +607,8 @@ static int bisect_start(struct bisect_terms *terms, int no_checkout,
 			must_write_terms = 1;
 			free((void *) terms->term_bad);
 			terms->term_bad = xstrdup(argv[++i]);
+			if (terms->term_bad[0] == '\'')
+				sq_dequote(terms->term_bad);
 		} else if (skip_prefix(arg, "--term-bad=", &arg) ||
 			   skip_prefix(arg, "--term-new=", &arg)) {
 			must_write_terms = 1;
@@ -616,6 +626,7 @@ static int bisect_start(struct bisect_terms *terms, int no_checkout,
 			string_list_append(&revs, oid_to_hex(&oid));
 			free(commit_id);
 		}
+		free(dequoted);
 	}
 	pathspec_pos = i;
 
