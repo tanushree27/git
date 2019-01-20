@@ -738,7 +738,9 @@ finish:
 	string_list_clear(&states, 0);
 	strbuf_release(&start_head);
 	strbuf_release(&bisect_names);
-	return retval;
+	if (retval)
+		return retval;
+	return bisect_auto_next(terms, NULL);
 }
 
 int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
