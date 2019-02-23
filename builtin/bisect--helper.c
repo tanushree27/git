@@ -1068,6 +1068,37 @@ static int bisect_visualize(struct bisect_terms *terms, const char **argv, int a
 	return res;
 }
 
+static int bisect_run(struct bisect_terms *terms, const char **argv, int argc)
+{
+	if(!bisect_next_check(terms, NULL))
+		return -1;
+	
+	while(true) {
+		char *command, *state;
+		for (int i = 0; i < argc; i++) {
+			strcat(command, argv[i]);
+		}
+
+		printf(_("running %s"), command);
+		res = run_command_v_opt(argv, 0);
+		
+		if (res < 0 || res >= 128) {
+			error(_("bisect run failed: exit code %d from"
+				" '%s' is < 0 or >= 128"), res, command);
+			return res;
+		}
+
+		if (res == 125)
+			strcat(state, "skip");
+		else if (res > 0)
+			strcat(state, terms->term_bad);
+		else
+			strcat(state, terms->term_good);
+		
+		res = bisect_state(terms, )
+	}
+}
+
 int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
 {
 	enum {
@@ -1171,6 +1202,12 @@ int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
 	case BISECT_VISUALIZE:
 		get_terms(&terms);
 		res = bisect_visualize(&terms, argv, argc);
+		break;
+	case BISECT_RUN:
+		if (argc == 0)
+			return error(_("bisect run failed: no command provided."));
+		get_terms(&terms);
+		bisect_run(&terms, argv, argc);
 		break;
 	default:
 		return error("BUG: unknown subcommand '%d'", cmdmode);
