@@ -31,6 +31,7 @@ static const char * const git_bisect_helper_usage[] = {
 	N_("git bisect--helper --bisect-replay <filename>"),
 	N_("git bisect--helper --bisect-skip [(<rev>|<range>)...]"),
 	N_("git bisect--helper --bisect-visualize"),
+	N_("git bisect--helper --bisect-run <cmd>..."),
 	NULL
 };
 
@@ -543,7 +544,8 @@ static int bisect_next(struct bisect_terms *terms, const char *prefix)
 	res = bisect_next_all(prefix, no_checkout);
 
 	if (res == -10) {
-		return bisect_successful(terms);
+		res = bisect_successful(terms);
+		return res ? res : -11;
 	} else if (res == -2) {
 		res = bisect_skipped_commits(terms);
 		return res ? res : -2;
@@ -1067,6 +1069,61 @@ static int bisect_visualize(struct bisect_terms *terms, const char **argv, int a
 	return res;
 }
 
+static int bisect_run(struct bisect_terms *terms, const char **argv, int argc)
+{
+    	int i, res = 0;
+	struct strbuf command = STRBUF_INIT;
+	struct argv_array args = ARGV_ARRAY_INIT;
+
+	if (bisect_next_check(terms, NULL))
+        	return -1;
+
+	for (i = 0; i < argc; i++) {
+            	strbuf_addstr(&command, argv[i]);
+		strbuf_addstr(&command, " ");
+        }
+
+	while (1) {
+		argv_array_clear(&args);
+
+		printf(_("running %s"), command.buf);
+		res = run_command_v_opt(argv, RUN_USING_SHELL);
+
+		if (res < 0 && res >= 128) {
+			error(_("bisect run failed: exit code %d from"
+				" '%s' is < 0 or >= 128"), res, command.buf);
+			strbuf_release(&command);
+			return res;
+		}
+
+		if (res == 125)
+			argv_array_push(&args, "skip");
+		else if (res > 0)
+			argv_array_push(&args, terms->term_bad);
+		else
+			argv_array_push(&args, terms->term_good);
+		
+		res = bisect_state(terms, args.argv, args.argc);
+		
+
+		if (res == -11) {
+            		printf(_("bisect run success"));
+            		res = 0;
+        	}
+		else if (res == -2)
+            		error(_("bisect run cannot continue any more"));
+        	else if (res)
+            		error(_("bisect run failed:'git bisect--helper --bisect-state"
+               			" %s' exited with error code %d"), args.argv[0], res);
+        	else
+            		continue;
+
+		strbuf_release(&command);
+		argv_array_clear(&args);
+		return res;
+	}
+}
+
 int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
 {
 	enum {
@@ -1079,7 +1136,8 @@ int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
 		BISECT_LOG,
 		BISECT_REPLAY,
 		BISECT_SKIP,
-		BISECT_VISUALIZE
+		BISECT_VISUALIZE,
+		BISECT_RUN,
 	} cmdmode = 0;
 	int no_checkout = 0, res = 0, nolog = 0;
 	struct option options[] = {
@@ -1103,6 +1161,8 @@ int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
 			 N_("skip some commits for checkout"), BISECT_SKIP),
 		OPT_CMDMODE(0, "bisect-visualize", &cmdmode,
 			 N_("visualize the bisection"), BISECT_VISUALIZE),
+		OPT_CMDMODE(0, "bisect-run", &cmdmode,
+			 N_("use <cmd>... to automatically bisect."), BISECT_RUN),
 		OPT_BOOL(0, "no-checkout", &no_checkout,
 			 N_("update BISECT_HEAD instead of checking out the current commit")),
 		OPT_BOOL(0, "no-log", &nolog,
@@ -1170,6 +1230,12 @@ int cmd_bisect__helper(int argc, const char **argv, const char *prefix)
 	case BISECT_VISUALIZE:
 		get_terms(&terms);
 		res = bisect_visualize(&terms, argv, argc);
+		break;
+	case BISECT_RUN:
+		if (!argc)
+			return error(_("bisect run failed: no command provided."));
+		get_terms(&terms);
+		res = bisect_run(&terms, argv, argc);
 		break;
 	default:
 		return error("BUG: unknown subcommand '%d'", cmdmode);
